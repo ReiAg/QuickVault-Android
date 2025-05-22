@@ -63,12 +63,11 @@ fun AppNavigation(){
             startDestination = "/services",
             modifier = Modifier.padding(innerPadding)
         ){
-            composable("/services") { ServicesView() }
+            composable("/services") { ServicesView(navController) }
             composable("/services/{serviceId}",
                 arguments = listOf(navArgument("serviceId"){type = NavType.LongType})
             ) {
-                val serviceId = it.arguments?.getLong("serviceId") ?: -1
-                PasswordsView(navController, serviceId)
+                PasswordsView(navController)
             }
         }
     }
