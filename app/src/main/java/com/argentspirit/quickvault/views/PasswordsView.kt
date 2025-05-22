@@ -1,9 +1,321 @@
 package com.argentspirit.quickvault.views
 
+import android.content.ClipData
+import android.content.ClipDescription
+import android.os.Build
+import android.os.PersistableBundle
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.argentspirit.quickvault.entities.PasswordEntry
+import com.argentspirit.quickvault.viewmodels.PasswordsViewModel
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewModel = hiltViewModel()){
+    val service by viewModel.service.collectAsState()
+    var isNavigating by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar( //TODO: Add a button to modify service name(maybe place add password button in header?)
+                modifier = Modifier
+                    .clip( // Apply the clip modifier
+                        shape = MaterialTheme.shapes.large.copy(
+                            topStart = CornerSize(0.dp),
+                            topEnd = CornerSize(0.dp)
+                        )
+                    ),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+
+                title = {
+                    Text(
+                        service?.service?.serviceName ?: "Unknown"
+                    )
+                },
+                navigationIcon = {
+                    IconButton(
+                        enabled = !isNavigating,
+                        onClick = {
+                            if (!isNavigating) {
+                                isNavigating = true
+                                navController.popBackStack()
+                            }
+                        },
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+            )
+        },
+
+    ){ innerPadding ->
+        if(service == null){
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Service not found")
+                return@Scaffold
+            }
+        }
+        LazyColumn(modifier = Modifier.padding(innerPadding)) {
+            items(service!!.passwordEntries) { password ->
+                PasswordEntryView(
+                    password,
+                    onSaveChanges = { },
+                    onNavigateToHistory = { }
+                )
+            }
+            //TODO: Add a button to add a new password entry
+        }
+    }
+}
 
 @Composable
-fun PasswordsView(navController: NavHostController, serviceId: Long = -1){
+fun PasswordEntryView(
+    password: PasswordEntry,
+    onSaveChanges: (updatedEntry: PasswordEntry) -> Unit, // Callback to save changes
+    onNavigateToHistory: (entryId: Long) -> Unit
+) {
+    var expand by remember { mutableStateOf(false) }
+    var isEditing by rememberSaveable { mutableStateOf(false) }
+
+    // State for editable fields during edit mode
+    val clipboardManager = LocalClipboard.current
+    var editableUsername by rememberSaveable(password.username, isEditing) { mutableStateOf(password.username ?: "") }
+    var editablePassword by rememberSaveable(password.password, isEditing) { mutableStateOf(password.password) }
+
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = { expand = !expand })
+                .padding(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isEditing) {
+                    OutlinedTextField( // Username field in edit mode
+                        value = editableUsername,
+                        onValueChange = { editableUsername = it },
+                        label = { Text("Username") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                } else {
+                    Text(
+                        text = password.username ?: "(No Username)",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if(!isEditing) {
+                    IconButton(onClick = { expand = !expand }) {
+                        Icon(
+                            imageVector = if (!expand) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                            contentDescription = if (!expand) "Expand password details" else "Collapse password details"
+                        )
+                    }
+                }
+
+            }
+            if (expand) {
+                Spacer(modifier = Modifier.height(8.dp))
+                    EditablePasswordTextField(editablePassword, { if(isEditing) editablePassword = it }, isEditable = isEditing)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isEditing) {
+                        IconButton(onClick = {
+                            onSaveChanges(
+                                password.copy(
+                                    username = editableUsername.takeIf { it.isNotBlank() },
+                                    password = editablePassword
+                                )
+                            )
+                            isEditing = false
+                            expand = true
+                        }) {
+                            Icon(Icons.Filled.Save, contentDescription = "Save Changes")
+                        }
+                        IconButton(onClick = {
+                            isEditing = false
+                            editableUsername = password.username ?: ""
+                            editablePassword = password.password
+                        }) {
+                            Icon(Icons.Filled.Cancel, contentDescription = "Cancel Edits")
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            isEditing = true
+                            expand = true
+                        }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Edit Entry")
+                        }
+                        IconButton(onClick = {
+                            // TODO: Implement navigation to history view
+                            onNavigateToHistory(password.id)
+                        }) {
+                            Icon(Icons.Filled.History, contentDescription = "View Password History")
+                        }
+
+                        IconButton(onClick = {
+                            val clip = ClipData.newPlainText("password", password.password)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val extras = PersistableBundle().apply {
+                                    putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                                }
+                                val newDescription = ClipDescription(clip.description).apply { // Start with existing description
+                                    setExtras(extras) // Add the sensitive flag
+                                }
+                                val sensitiveClipData = ClipData(newDescription, clip.getItemAt(0))
+                                clipboardManager.nativeClipboard.setPrimaryClip(
+                                    sensitiveClipData
+                                )
+                            } else {
+                                clipboardManager.nativeClipboard.setPrimaryClip(
+                                    clip
+                                )
+                            }
+                        }) {
+                            Icon(Icons.Filled.ContentCopy, contentDescription = "Copy Password")
+                        }
+
+                        val currentDateTime = LocalDateTime.now() // TODO: Replace with last modified date
+                        val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm",
+                            Locale.getDefault())
+                        val formattedCurrentDateTime = currentDateTime.format(formatter)
+                        Text( //TODO: Change how this is displayed
+                            text = formattedCurrentDateTime,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.End,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+
+        }
+    }
+}
+
+@Composable
+fun EditablePasswordTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    isEditable: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if(isEditable){
+        var passwordVisible by rememberSaveable { mutableStateOf(isEditable) }
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = modifier.fillMaxWidth(),
+            label = { Text("Password") },
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                val description = if (passwordVisible) "Hide password" else "Show password"
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = image, description)
+                }
+            }
+        )
+    } else{
+        var passwordVisible by rememberSaveable { mutableStateOf(isEditable) }
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = modifier.fillMaxWidth(),
+            label = { Text("Password") },
+            readOnly = true,
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                val description = if (passwordVisible) "Hide password" else "Show password"
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = image, description)
+                }
+            }
+        )
+    }
 
 }
