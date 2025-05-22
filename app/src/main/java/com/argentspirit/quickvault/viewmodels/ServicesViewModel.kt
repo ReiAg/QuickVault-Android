@@ -23,7 +23,12 @@ class ServicesViewModel @Inject constructor(private val database: PasswordDataba
         )
     fun AddPassword(serviceName: String, userName: String?, password: String){
         viewModelScope.launch(Dispatchers.IO) {
-            val serviceId = database.servicesDao().insertService(Service(serviceName = serviceName))
+            var service = database.servicesDao().getServiceByName(serviceName)
+            var serviceId = service?.id ?: 0L
+            if (service == null) {
+                serviceId = database.servicesDao().insertService(Service(serviceName = serviceName))
+            }
+
             database.passwordEntriesDao().insertPasswordEntry(PasswordEntry(
                 serviceId = serviceId,
                 username = userName,

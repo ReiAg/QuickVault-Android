@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -52,22 +54,30 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import com.argentspirit.quickvault.entities.Service
 import com.argentspirit.quickvault.viewmodels.ServicesViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServicesView(viewModel: ServicesViewModel = hiltViewModel()){
+fun ServicesView(navController: NavHostController, viewModel: ServicesViewModel = hiltViewModel()){
     val services by viewModel.services.collectAsState()
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true // If you don't want a partially expanded state
     )
-    val scope = rememberCoroutineScope()
+//    val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier = Modifier
+                    .clip( // Apply the clip modifier
+                        shape = MaterialTheme.shapes.large.copy(
+                            topStart = CornerSize(0.dp),
+                            topEnd = CornerSize(0.dp)
+                        )
+                    ),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -79,7 +89,7 @@ fun ServicesView(viewModel: ServicesViewModel = hiltViewModel()){
             )
         },
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)){
+        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()){
             if(services.isEmpty()){
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center){
                     Text(
@@ -92,89 +102,14 @@ fun ServicesView(viewModel: ServicesViewModel = hiltViewModel()){
                 LazyColumn() {
                     items(services) { service ->
                         ServiceWidget(service, modifier = Modifier.fillMaxWidth()) {
-
+                            navController.navigate("/services/${service.id}")
                         }
                     }
                 }
             }
             if (showBottomSheet){
-                ModalBottomSheet(
-                    onDismissRequest = {
-                        showBottomSheet = false
-                    },
-                    sheetState = sheetState
-                ) {
-                    var serviceName by remember { mutableStateOf("") }
-                    var userName by remember { mutableStateOf("") }
-                    var userPassword by remember { mutableStateOf("") }
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(
-                            rememberScrollState()
-                        )
-                    ) {
-                        val focusManager = LocalFocusManager.current
-                        Text("New password", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(
-                            value = serviceName,
-                            onValueChange = { serviceName = it },
-                            label = {
-                                Text(
-                                    modifier = Modifier.padding(0.dp),
-                                    text = "Service"
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions.Default.copy(
-                                imeAction = ImeAction.Next
-                            ),
-                            keyboardActions = KeyboardActions(onNext = {focusManager.moveFocus(FocusDirection.Next)})
-                        )
-                        OutlinedTextField(
-                            value = userName,
-                            onValueChange = { userName = it },
-                            label = {
-                                Text(
-                                    modifier = Modifier.padding(0.dp),
-                                    text = "Username"
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions.Default.copy(
-                                imeAction = ImeAction.Next
-                            ),
-                            keyboardActions = KeyboardActions(onNext = {focusManager.moveFocus(FocusDirection.Next)})
-                        )
-                        OutlinedTextField(
-                            value = userPassword,
-                            onValueChange = { userPassword = it },
-                            label = {
-                                Text(
-                                    modifier = Modifier.padding(0.dp),
-                                    text = "Password"
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions.Default.copy(
-                                imeAction = ImeAction.Next
-                            ),
-                            keyboardActions = KeyboardActions(onNext = {focusManager.moveFocus(FocusDirection.Next)})
-                        )
-                        Button(onClick = {
-                            showBottomSheet = false
-                            viewModel.AddPassword(serviceName, userName, userPassword)
-                        }) {
-                            Text("Save")
-                        }
-                    }
+                AddPasswordSheet(sheetState, viewModel){
+                    showBottomSheet = false
                 }
             } else {
                 FloatingActionButton(
@@ -188,6 +123,100 @@ fun ServicesView(viewModel: ServicesViewModel = hiltViewModel()){
             }
         }
 
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun AddPasswordSheet(
+    sheetState: SheetState,
+    viewModel: ServicesViewModel,
+    onDismiss: () -> Unit
+){
+    ModalBottomSheet(
+        onDismissRequest = {
+            onDismiss()
+        },
+        sheetState = sheetState
+    ) {
+        var serviceName by remember { mutableStateOf("") }
+        var userName by remember { mutableStateOf("") }
+        var userPassword by remember { mutableStateOf("") }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(
+                    rememberScrollState()
+                )
+        ) {
+            val focusManager = LocalFocusManager.current
+            Text(
+                "New password",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = serviceName,
+                onValueChange = { serviceName = it },
+                label = {
+                    Text(
+                        modifier = Modifier.padding(0.dp),
+                        text = "Service"
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) })
+            )
+            OutlinedTextField(
+                value = userName,
+                onValueChange = { userName = it },
+                label = {
+                    Text(
+                        modifier = Modifier.padding(0.dp),
+                        text = "Username"
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) })
+            )
+            OutlinedTextField(
+                value = userPassword,
+                onValueChange = { userPassword = it },
+                label = {
+                    Text(
+                        modifier = Modifier.padding(0.dp),
+                        text = "Password"
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) })
+            )
+            Button(onClick = {
+                viewModel.AddPassword(serviceName, userName, userPassword)
+                onDismiss()
+            }) {
+                Text("Save")
+            }
+        }
     }
 }
 
@@ -234,7 +263,7 @@ fun ProfilePicture(
                 .width(48.dp)
                 .height(48.dp)
                 .clip(CircleShape)
-                .background(bgColor)
+                .background(bgColor) // TODO: Change color based on letter, also make gradient
         ) {
             Text(
                 text = firstLetter,
