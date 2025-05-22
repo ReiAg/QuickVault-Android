@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ServicesDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE) // Ignore if serviceName already exists (optional strategy)
+//    @Insert(onConflict = OnConflictStrategy.IGNORE) // Ignore if serviceName already exists (optional strategy)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertService(service: Service): Long
 
     @Query("SELECT * FROM services")
@@ -20,6 +21,9 @@ interface ServicesDao {
 
     @Query("SELECT * FROM services WHERE id = :serviceId")
     fun getServiceById(serviceId: Long): Flow<Service?>
+
+    @Query("SELECT * FROM services WHERE serviceName = :serviceName")
+    fun getServiceByName(serviceName: String): Service?
 
     @Delete
     suspend fun deleteService(service: Service)
