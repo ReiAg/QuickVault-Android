@@ -21,6 +21,12 @@ class ServicesViewModel @Inject constructor(private val database: PasswordDataba
             started = SharingStarted.WhileSubscribed(5000), // Configure how long to keep the flow alive
             initialValue = emptyList() // Initial empty list
         )
+    val usernames: StateFlow<List<String>> = database.passwordEntriesDao().getAllUsernames()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
     fun AddPassword(serviceName: String, userName: String?, password: String){
         viewModelScope.launch(Dispatchers.IO) {
             var service = database.servicesDao().getServiceByName(serviceName)
