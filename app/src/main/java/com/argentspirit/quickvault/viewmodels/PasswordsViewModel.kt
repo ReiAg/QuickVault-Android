@@ -4,15 +4,18 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.argentspirit.quickvault.database.PasswordDatabase
+import com.argentspirit.quickvault.entities.PasswordEntry
 import com.argentspirit.quickvault.entities.ServiceWithPasswords
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class PasswordsViewModel  @Inject constructor(
@@ -28,5 +31,12 @@ class PasswordsViewModel  @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = null
     )
+
+    fun updatePasswordEntry(passwordEntry: PasswordEntry) {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.passwordEntriesDao().updatePasswordEntry(passwordEntry)
+        }
+
+    }
 
 }

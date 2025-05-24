@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipDescription
 import android.os.Build
 import android.os.PersistableBundle
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -65,13 +70,26 @@ import com.argentspirit.quickvault.viewmodels.PasswordsViewModel
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewModel = hiltViewModel()){
     val service by viewModel.service.collectAsState()
     var isNavigating by remember { mutableStateOf(false) }
-
+    val firstTwoLetters = service?.service?.serviceName?.take(2)?.uppercase() ?: "#"
+    val baseColor = remember(firstTwoLetters) {
+        // Generate a color based on the first letter
+        val random = Random(firstTwoLetters.hashCode()+16)
+        Color(random.nextInt(256), random.nextInt(256), random.nextInt(256))
+    }
+//    val gradientBrush = Brush.verticalGradient(
+//        colors = listOf(
+//            baseColor,
+//            baseColor.copy(alpha = 0.7f) // Lighter shade for gradient
+//        )
+//    )
+    val textColor = if (baseColor.luminance() > 0.5) Color.Black else Color.White
     Scaffold(
         topBar = {
             TopAppBar( //TODO: Add a button to modify service name(maybe place add password button in header?)
@@ -83,8 +101,8 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
                         )
                     ),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = baseColor,
+                    titleContentColor = textColor
                 ),
 
                 title = {
@@ -105,7 +123,7 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = textColor
                         )
                     }
                 }
@@ -128,8 +146,12 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
             items(service!!.passwordEntries) { password ->
                 PasswordEntryView(
                     password,
-                    onSaveChanges = { },
-                    onNavigateToHistory = { }
+                    onSaveChanges = {
+                        viewModel.updatePasswordEntry(it)
+                    },
+                    onNavigateToHistory = {
+//                        navController.navigate("/passwords/${it}")
+                    }
                 )
             }
             //TODO: Add a button to add a new password entry
@@ -155,6 +177,7 @@ fun PasswordEntryView(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .animateContentSize()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -179,16 +202,22 @@ fun PasswordEntryView(
                     )
                 } else {
                     Text(
-                        text = password.username ?: "(No Username)",
+                        text = if (password.username.isNullOrEmpty()) "Empty" else password.username,
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        color = if (password.username.isNullOrEmpty())
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                else
+                                    MaterialTheme.colorScheme.onSurface
                     )
                 }
                 if(!isEditing) {
+                    val iconRotation by animateFloatAsState(targetValue = if (expand) 180f else 0f, label = "arrowRotation")
                     IconButton(onClick = { expand = !expand }) {
                         Icon(
-                            imageVector = if (!expand) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
-                            contentDescription = if (!expand) "Expand password details" else "Collapse password details"
+                            imageVector = Icons.Filled.KeyboardArrowDown, // Arrow always points down, rotate it
+                            contentDescription = if (!expand) "Expand password details" else "Collapse password details",
+                            modifier = Modifier.rotate(iconRotation)
                         )
                     }
                 }
@@ -258,14 +287,15 @@ fun PasswordEntryView(
                         }
 
                         val currentDateTime = LocalDateTime.now() // TODO: Replace with last modified date
-                        val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm",
+                        val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy",
                             Locale.getDefault())
                         val formattedCurrentDateTime = currentDateTime.format(formatter)
                         Text( //TODO: Change how this is displayed
                             text = formattedCurrentDateTime,
                             modifier = Modifier.weight(1f),
                             textAlign = TextAlign.End,
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
                 }
