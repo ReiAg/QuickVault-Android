@@ -34,6 +34,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import com.argentspirit.quickvault.views.AuthenticatorView
+import com.argentspirit.quickvault.views.MenuView
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -69,13 +71,16 @@ fun AppNavigation(){
             ) {
                 PasswordsView(navController)
             }
+
+            composable("/authenticator") { AuthenticatorView() }
+            composable("/menu") { MenuView() }
         }
     }
 }
 sealed class ScreenView(val route: String, val label: String, val iconResId: Int){
-    object Authenticator : ScreenView("/services", "Authenticator", R.drawable.encrypted_24dp)
+    object Authenticator : ScreenView("/authenticator", "Authenticator", R.drawable.encrypted_24dp)
     object Services : ScreenView("/services", "Passwords", R.drawable.key_24dp)
-    object Menu : ScreenView("/services", "Menu", R.drawable.menu_24dp)
+    object Menu : ScreenView("/menu", "Menu", R.drawable.menu_24dp)
 }
 @Composable
 fun BottomNavigationBar(navController: NavHostController, items: List<ScreenView>){
@@ -87,7 +92,7 @@ fun BottomNavigationBar(navController: NavHostController, items: List<ScreenView
                 // Use painterResource with the icon resource ID
                 icon = { Icon(painter = painterResource(id = screen.iconResId), contentDescription = screen.label) },
                 label = { Text(screen.label) },
-                selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                selected = currentDestination?.hierarchy?.any { it.route?.contains(screen.route) == true } == true,
                 onClick = {
                     if (currentDestination?.route != screen.route) {
                         navController.navigate(screen.route) {
