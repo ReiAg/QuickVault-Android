@@ -200,14 +200,14 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
                                     showMenu = false
                                 }
                             )
-                            androidx.compose.material3.DropdownMenuItem(
-                                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = "Add Password") },
-                                text = { Text("Add Password") },
-                                onClick = {
-                                    /* TODO: Implement add password */
-                                    showMenu = false
-                                }
-                            )
+//                            androidx.compose.material3.DropdownMenuItem(
+//                                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = "Add Password") },
+//                                text = { Text("Add Password") },
+//                                onClick = {
+//                                    /* TODO: Implement add password */
+//                                    showMenu = false
+//                                }
+//                            )
                             androidx.compose.material3.DropdownMenuItem(
                                 leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = "Delete Service") },
                                 text = { Text("Delete Service") },
@@ -255,6 +255,7 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
                 }
             }
         }
+
     }
 }
 
