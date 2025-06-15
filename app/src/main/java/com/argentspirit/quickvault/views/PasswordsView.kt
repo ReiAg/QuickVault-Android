@@ -6,7 +6,8 @@ import android.os.Build
 import android.os.PersistableBundle
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,20 +20,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,12 +61,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -66,49 +75,73 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.argentspirit.quickvault.entities.PasswordEntry
+import com.argentspirit.quickvault.utility.BaseColorGenerator.getColorPaletteFromString
 import com.argentspirit.quickvault.viewmodels.PasswordsViewModel
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewModel = hiltViewModel()){
     val service by viewModel.service.collectAsState()
     var isNavigating by remember { mutableStateOf(false) }
-    val firstTwoLetters = service?.service?.serviceName?.take(2)?.uppercase() ?: "#"
-    val baseColor = remember(firstTwoLetters) {
-        // Generate a color based on the first letter
-        val random = Random(firstTwoLetters.hashCode()+16)
-        Color(random.nextInt(256), random.nextInt(256), random.nextInt(256))
-    }
-//    val gradientBrush = Brush.verticalGradient(
-//        colors = listOf(
-//            baseColor,
-//            baseColor.copy(alpha = 0.7f) // Lighter shade for gradient
-//        )
-//    )
-    val textColor = if (baseColor.luminance() > 0.5) Color.Black else Color.White
+    var showMenu by remember { mutableStateOf(false) }
+    val pallet = getColorPaletteFromString(service?.service?.serviceName ?: "")
+    val gradientBrush = Brush.verticalGradient(
+        colors = listOf(pallet.gradientStartColor, pallet.gradientEndColor)
+    )
+    var editServiceName by remember { mutableStateOf(false) }
+    var tempServiceName by remember { mutableStateOf(service?.service?.serviceName ?: "") }
+
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
-            TopAppBar( //TODO: Add a button to modify service name(maybe place add password button in header?)
+            TopAppBar(
                 modifier = Modifier
                     .clip( // Apply the clip modifier
                         shape = MaterialTheme.shapes.large.copy(
                             topStart = CornerSize(0.dp),
                             topEnd = CornerSize(0.dp)
                         )
+                    ).then(
+                        Modifier.background(
+                            brush = gradientBrush
+                        )
                     ),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = baseColor,
-                    titleContentColor = textColor
+                    containerColor = Color.Transparent,
+                    titleContentColor = pallet.textColor
                 ),
 
                 title = {
-                    Text(
-                        service?.service?.serviceName ?: "Unknown"
-                    )
+                    if (!editServiceName) {
+                        Text(
+                            service?.service?.serviceName ?: "Unknown",
+                            color = pallet.textColor
+                        )
+                    } else {
+                        LaunchedEffect(Unit) {
+                            tempServiceName = service?.service?.serviceName ?: ""
+                        }
+                        val underlineColor = if(tempServiceName.isBlank()) Color.Red else pallet.textColor
+
+                        BasicTextField(
+                            value = tempServiceName,
+                            onValueChange = { tempServiceName = it },
+                            textStyle = MaterialTheme.typography.titleLarge.copy(color = pallet.textColor),
+                            modifier = Modifier.fillMaxWidth(),
+                            cursorBrush = SolidColor(pallet.textColor),
+                            decorationBox = { innerTextField ->
+                                Column {
+                                    innerTextField()
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(1.dp).background(underlineColor).fillMaxWidth()) // Add some space)
+                                }
+                            }
+                        )
+                    }
                 },
                 navigationIcon = {
                     IconButton(
@@ -123,8 +156,67 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = textColor
+                            tint = pallet.textColor
                         )
+                    }
+                },
+                actions = {
+                    if(editServiceName){
+                        IconButton(onClick = { //TODO: if name overlaps suggest merge
+                            editServiceName = false
+                            viewModel.updateServiceName(tempServiceName)
+                        }, enabled = tempServiceName.isNotBlank()) {
+                            Icon(
+                                imageVector = Icons.Filled.Done,
+                                contentDescription = "Save Service Name",
+                                tint = pallet.textColor
+                            )
+                        }
+                        IconButton(onClick = {
+                            editServiceName = false
+                        }) {
+                            Icon(
+                                imageVector = Icons.Filled.Cancel,
+                                contentDescription = "Cancel Edit Service Name",
+                                tint = pallet.textColor)
+                        }
+                    } else {
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "More options",
+                                tint = pallet.textColor
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = "Add Password") },
+                                text = { Text("Rename") },
+                                onClick = {
+                                    editServiceName = true
+                                    showMenu = false
+                                }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = "Add Password") },
+                                text = { Text("Add Password") },
+                                onClick = {
+                                    /* TODO: Implement add password */
+                                    showMenu = false
+                                }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = "Delete Service") },
+                                text = { Text("Delete Service") },
+                                onClick = {
+                                    showDeleteConfirmDialog = true
+                                    showMenu = false
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -142,19 +234,26 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
                 return@Scaffold
             }
         }
+        if(showDeleteConfirmDialog){
+            DeleteServiceDialog(onDismiss = { showDeleteConfirmDialog = false }, onConfirm = {
+                viewModel.deleteService()
+                navController.popBackStack()
+            })
+        }
         LazyColumn(modifier = Modifier.padding(innerPadding)) {
-            items(service!!.passwordEntries) { password ->
-                PasswordEntryView(
-                    password,
-                    onSaveChanges = {
-                        viewModel.updatePasswordEntry(it)
-                    },
-                    onNavigateToHistory = {
-//                        navController.navigate("/passwords/${it}")
-                    }
-                )
+            service?.let { service ->
+                items(service.passwordEntries) { password ->
+                    PasswordEntryView(
+                        password,
+                        onSaveChanges = {
+                            viewModel.updatePasswordEntry(it)
+                        },
+                        onNavigateToHistory = {
+        //                        navController.navigate("/passwords/${it}")
+                        }
+                    )
+                }
             }
-            //TODO: Add a button to add a new password entry
         }
     }
 }
@@ -163,7 +262,8 @@ fun PasswordsView(navController: NavHostController, viewModel: PasswordsViewMode
 fun PasswordEntryView(
     password: PasswordEntry,
     onSaveChanges: (updatedEntry: PasswordEntry) -> Unit, // Callback to save changes
-    onNavigateToHistory: (entryId: Long) -> Unit
+    onNavigateToHistory: (entryId: Long) -> Unit,
+    onLongClick: () -> Unit = {},
 ) {
     var expand by remember { mutableStateOf(false) }
     var isEditing by rememberSaveable { mutableStateOf(false) }
@@ -178,13 +278,17 @@ fun PasswordEntryView(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 24.dp, vertical = 8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = { expand = !expand })
+                .combinedClickable(
+                    onClick = { expand = !expand },
+                    onLongClick = { onLongClick() }
+                )
+
                 .padding(8.dp)
         ) {
             Row(
@@ -225,7 +329,7 @@ fun PasswordEntryView(
             }
             if (expand) {
                 Spacer(modifier = Modifier.height(8.dp))
-                    EditablePasswordTextField(editablePassword, { if(isEditing) editablePassword = it }, isEditable = isEditing)
+                EditablePasswordTextField(editablePassword, { if(isEditing) editablePassword = it }, isEditable = isEditing)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -258,7 +362,6 @@ fun PasswordEntryView(
                             Icon(Icons.Filled.Edit, contentDescription = "Edit Entry")
                         }
                         IconButton(onClick = {
-                            // TODO: Implement navigation to history view
                             onNavigateToHistory(password.id)
                         }) {
                             Icon(Icons.Filled.History, contentDescription = "View Password History")
@@ -270,8 +373,8 @@ fun PasswordEntryView(
                                 val extras = PersistableBundle().apply {
                                     putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
                                 }
-                                val newDescription = ClipDescription(clip.description).apply { // Start with existing description
-                                    setExtras(extras) // Add the sensitive flag
+                                val newDescription = ClipDescription(clip.description).apply {
+                                    setExtras(extras)
                                 }
                                 val sensitiveClipData = ClipData(newDescription, clip.getItemAt(0))
                                 clipboardManager.nativeClipboard.setPrimaryClip(
@@ -349,3 +452,34 @@ fun EditablePasswordTextField(
     }
 
 }
+
+@Composable
+fun DeleteServiceDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Confirm Deletion") },
+        text = { Text("Are you sure you want to delete this service and all its passwords? This action cannot be undone.") },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) {
+                Text("Delete")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+
+

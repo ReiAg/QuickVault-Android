@@ -36,7 +36,20 @@ class PasswordsViewModel  @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             database.passwordEntriesDao().updatePasswordEntry(passwordEntry)
         }
+    }
 
+    fun updateServiceName(newName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            service.value?.let {
+                database.servicesDao().updateService(it.service.copy(serviceName = newName))
+            }
+        }
+    }
+
+    fun deleteService() {
+        viewModelScope.launch(Dispatchers.IO) {
+            service.value?.service?.let { database.servicesDao().deleteService(it) }
+        }
     }
 
 }

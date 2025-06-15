@@ -32,6 +32,7 @@ import com.argentspirit.quickvault.views.ServicesView
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.argentspirit.quickvault.views.AuthenticatorView
@@ -63,7 +64,7 @@ fun AppNavigation(){
         NavHost(
             navController = navController,
             startDestination = "/services",
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ){
             composable("/services") { ServicesView(navController) }
             composable("/services/{serviceId}",

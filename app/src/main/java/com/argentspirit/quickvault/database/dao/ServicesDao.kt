@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import androidx.room.Transaction
 import com.argentspirit.quickvault.entities.Service
 import com.argentspirit.quickvault.entities.ServiceWithPasswords
@@ -24,6 +25,9 @@ interface ServicesDao {
 
     @Query("SELECT * FROM services WHERE serviceName = :serviceName")
     fun getServiceByName(serviceName: String): Service?
+
+    @Update
+    suspend fun updateService(service: Service)
 
     @Delete
     suspend fun deleteService(service: Service)
